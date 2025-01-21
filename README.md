@@ -40,7 +40,7 @@ The app needs to know which service endpoints to use for the Azure OpenAI and Az
       - **Important**: Ensure you can run `python --version` from console. On Ubuntu, you might need to run `sudo apt install python-is-python3` to link `python` to `python3`.
    - [Powershell](https://learn.microsoft.com/powershell/scripting/install/installing-powershell)
 
-2. Clone the repo (`git clone https://github.com/navintkr/openai-rag-audio`)
+2. Clone the repo (`git clone https://github.com/Nizarel/AudioRAG`)
 3. Create a Python virtual environment and activate it.
 4. The app needs to know which service endpoints to use for the Azure OpenAI and Azure AI Search. The following variables can be set as environment variables, or you can create a ".env" file in the "app/backend/" directory with this content.
    ```
@@ -59,13 +59,6 @@ The app needs to know which service endpoints to use for the Azure OpenAI and Az
    ```pwsh
    cd app
    pwsh .\start.ps1
-   ```
-
-   Linux/Mac:
-
-   ```bash
-   cd app
-   ./start.sh
    ```
 
 6. The app should now be available on http://localhost:8765

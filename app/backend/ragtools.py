@@ -5,12 +5,12 @@ from azure.search.documents.aio import SearchClient
 from azure.search.documents.models import VectorizableTextQuery
 from rtmt import RTMiddleTier, Tool, ToolResult, ToolResultDirection
 
+# Schema for the search tool
 _search_tool_schema = {
     "type": "function",
     "name": "search",
-    "description": "Search the knowledge base. The knowledge base is in English, translate to and from Engligh if " + \
-                   "needed. Results are formatted as a source name first in square brackets, followed by the text " + \
-                   "content, and a line with '-----' at the end of each result.",
+    "description": "Search the knowledge base. The knowledge base is in English, translate to and from English if needed. "
+                   "Results are formatted as a source name first in square brackets, followed by the text content, and a line with '-----' at the end of each result.",
     "parameters": {
         "type": "object",
         "properties": {
@@ -24,12 +24,12 @@ _search_tool_schema = {
     }
 }
 
+# Schema for the grounding tool
 _grounding_tool_schema = {
     "type": "function",
     "name": "report_grounding",
-    "description": "Report use of a source from the knowledge base as part of an answer (effectively, cite the source). Sources " + \
-                   "appear in square brackets before each knowledge base passage. Always use this tool to cite sources when responding " + \
-                   "with information from the knowledge base.",
+    "description": "Report use of a source from the knowledge base as part of an answer (effectively, cite the source). "
+                   "Sources appear in square brackets before each knowledge base passage. Always use this tool to cite sources when responding with information from the knowledge base.",
     "parameters": {
         "type": "object",
         "properties": {
@@ -46,6 +46,7 @@ _grounding_tool_schema = {
     }
 }
 
+# Asynchronous function for the search tool
 async def _search_tool(search_client: SearchClient, args: Any) -> ToolResult:
     print(f"Searching for '{args['query']}' in the knowledge base.")
     # Hybrid + Reranking query using Azure AI Search
@@ -62,6 +63,7 @@ async def _search_tool(search_client: SearchClient, args: Any) -> ToolResult:
 
 # TODO: move from sending all chunks used for grounding eagerly to only sending links to 
 # the original content in storage, it'll be more efficient overall
+# Asynchronous function for the grounding tool
 async def _report_grounding_tool(search_client: SearchClient, args: Any) -> None:
     list = ",".join(args["sources"])
     print(f"Grounding source: {list}")
@@ -71,10 +73,13 @@ async def _report_grounding_tool(search_client: SearchClient, args: Any) -> None
         docs.append({"chunk_id": r['chunk_id'], "title": r["title"], "chunk": r['chunk']})
     return ToolResult({"sources": docs}, ToolResultDirection.TO_CLIENT)
 
+# Function to attach RAG tools to the RTMiddleTier
 def attach_rag_tools(rtmt: RTMiddleTier, search_endpoint: str, search_index: str, credentials: AzureKeyCredential | DefaultAzureCredential) -> None:
     if isinstance(credentials, DefaultAzureCredential):
         credentials.get_token("https://search.azure.com/.default") # warm this up before we start getting requests
     search_client = SearchClient(search_endpoint, search_index, credentials, user_agent="RTMiddleTier")
 
+    # Attach the search tool to the RTMiddleTier
     rtmt.tools["search"] = Tool(schema=_search_tool_schema, target=lambda args: _search_tool(search_client, args))
+    # Attach the grounding tool to the RTMiddleTier
     rtmt.tools["report_grounding"] = Tool(schema=_grounding_tool_schema, target=lambda args: _report_grounding_tool(search_client, args))
