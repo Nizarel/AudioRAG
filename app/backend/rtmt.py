@@ -7,9 +7,16 @@ from aiohttp import web
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from azure.core.credentials import AzureKeyCredential
 
+# The provided code defines a real-time middleware tier for handling WebSocket communication between a client and a server.
+# It utilizes the aiohttp library for asynchronous HTTP and WebSocket handling, and integrates with Azure for authentication and authorization.
+
 class ToolResultDirection(Enum):
     TO_SERVER = 1
     TO_CLIENT = 2
+
+# ToolResultDirection:
+# An enumeration specifying the direction of the tool result.
+# Values: TO_SERVER (1), TO_CLIENT (2).
 
 class ToolResult:
     text: str
@@ -24,6 +31,13 @@ class ToolResult:
             return ""
         return self.text if type(self.text) == str else json.dumps(self.text)
 
+# ToolResult:
+# Encapsulates the result of a tool's execution.
+# Attributes: text (str), destination (ToolResultDirection).
+# Methods:
+# - __init__(self, text: str, destination: ToolResultDirection): Initializes the result.
+# - to_text(self) -> str: Returns the result as a string, converting to JSON if necessary.
+
 class Tool:
     target: Callable[..., ToolResult]
     schema: Any
@@ -32,6 +46,12 @@ class Tool:
         self.target = target
         self.schema = schema
 
+# Tool:
+# Represents a tool with a target function and a schema.
+# Attributes: target (Callable[..., ToolResult]), schema (Any).
+# Methods:
+# - __init__(self, target: Any, schema: Any): Initializes the tool.
+
 class RTToolCall:
     tool_call_id: str
     previous_id: str
@@ -39,6 +59,12 @@ class RTToolCall:
     def __init__(self, tool_call_id: str, previous_id: str):
         self.tool_call_id = tool_call_id
         self.previous_id = previous_id
+
+# RTToolCall:
+# Keeps track of tool call identifiers and their previous identifiers.
+# Attributes: tool_call_id (str), previous_id (str).
+# Methods:
+# - __init__(self, tool_call_id: str, previous_id: str): Initializes the tool call.
 
 class RTMiddleTier:
     endpoint: str
@@ -66,6 +92,17 @@ class RTMiddleTier:
         else:
             self._token_provider = get_bearer_token_provider(credentials, "https://cognitiveservices.azure.com/.default")
             self._token_provider() # Warm up during startup so we have a token cached when the first request arrives
+
+    # RTMiddleTier:
+    # Attributes:
+    # - endpoint (str): The endpoint URL.
+    # - key (Optional[str]): The API key.
+    # - tools (dict[str, Tool]): Dictionary of tools.
+    # - model, system_message, temperature, max_tokens, disable_audio (Optional): Server-enforced configurations.
+    # - _tools_pending (dict): Pending tool calls.
+    # - _token_provider (Any): Token provider for Azure authentication.
+    # Methods:
+    # - __init__(self, endpoint: str, credentials: AzureKeyCredential | DefaultAzureCredential): Initializes the middleware with endpoint and credentials.
 
     async def _process_message_to_client(self, msg: str, client_ws: web.WebSocketResponse, server_ws: web.WebSocketResponse) -> Optional[str]:
         message = json.loads(msg.data)
@@ -144,6 +181,11 @@ class RTMiddleTier:
 
         return updated_message
 
+    # _process_message_to_client:
+    # Handles various message types (session.created, response.output_item.added, conversation.item.created, etc.).
+    # Updates messages based on the type and server configurations.
+    # Ensures sensitive information is hidden from the client.
+
     async def _process_message_to_server(self, msg: str, ws: web.WebSocketResponse) -> Optional[str]:
         message = json.loads(msg.data)
         updated_message = msg.data
@@ -164,6 +206,10 @@ class RTMiddleTier:
                     updated_message = json.dumps(message)
 
         return updated_message
+
+    # _process_message_to_server:
+    # Handles session.update messages.
+    # Updates session configurations based on server-enforced settings.
 
     async def _forward_messages(self, ws: web.WebSocketResponse):
         async with aiohttp.ClientSession(base_url=self.endpoint) as session:
@@ -200,11 +246,23 @@ class RTMiddleTier:
                     # Ignore the errors resulting from the client disconnecting the socket
                     pass
 
+    # _forward_messages:
+    # Establishes WebSocket connections to the server.
+    # Defines inner asynchronous functions from_client_to_server and from_server_to_client to handle message forwarding.
+    # Processes messages using the previously defined methods and sends updated messages to respective WebSocket connections.
+
     async def _websocket_handler(self, request: web.Request):
         ws = web.WebSocketResponse()
         await ws.prepare(request)
         await self._forward_messages(ws)
         return ws
-    
+
+    # _websocket_handler:
+    # Handles WebSocket requests.
+
     def attach_to_app(self, app, path):
         app.router.add_get(path, self._websocket_handler)
+
+    # attach_to_app:
+    # Adds a WebSocket handler to the application's router.
+    # Allows the middleware to handle WebSocket requests at a specified path, facilitating real-time communication between the client and server.
